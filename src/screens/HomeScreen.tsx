@@ -1,28 +1,43 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { UpcomingGames } from '../components/games/UpcomingGames';
 
 export const HomeScreen = () => {
-  const { logout, user } = useAuth();
+  const { logOut, user } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await logOut();
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível fazer logout. Tente novamente.');
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.welcome}>Bem-vindo!</Text>
-      <Text style={styles.email}>{user?.email}</Text>
-      <TouchableOpacity style={styles.button} onPress={logout}>
+    <ScrollView style={styles.scrollView}>
+      <View style={styles.header}>
+        <Text style={styles.welcome}>Bem-vindo!</Text>
+        <Text style={styles.email}>{user?.email}</Text>
+      </View>
+
+      <UpcomingGames />
+
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.buttonText}>Sair</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  scrollView: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
     backgroundColor: '#f5f5f5',
+  },
+  header: {
+    padding: 20,
+    alignItems: 'center',
   },
   welcome: {
     fontSize: 24,
@@ -34,11 +49,11 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: '#666',
   },
-  button: {
+  logoutButton: {
     backgroundColor: '#FF3B30',
     padding: 15,
     borderRadius: 5,
-    width: '100%',
+    margin: 20,
     alignItems: 'center',
   },
   buttonText: {

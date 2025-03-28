@@ -4,11 +4,16 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { FinanceProvider } from './src/contexts/FinanceContext';
+import { GamesProvider } from './src/contexts/GamesContext';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { RegisterScreen } from './src/screens/RegisterScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { InfoScreen } from './src/screens/InfoScreen';
 import { AthletesScreen } from './src/screens/AthletesScreen';
+import { FinanceScreen } from './src/screens/FinanceScreen';
+import { AddTransactionScreen } from './src/screens/AddTransactionScreen';
+import { PaymentHistoryScreen } from './src/screens/PaymentHistoryScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -26,6 +31,8 @@ function TabNavigator() {
             iconName = focused ? 'information-circle' : 'information-circle-outline';
           } else if (route.name === 'Athletes') {
             iconName = focused ? 'people' : 'people-outline';
+          } else if (route.name === 'Finance') {
+            iconName = focused ? 'wallet' : 'wallet-outline';
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -45,6 +52,11 @@ function TabNavigator() {
         options={{ title: 'Atletas' }}
       />
       <Tab.Screen 
+        name="Finance" 
+        component={FinanceScreen} 
+        options={{ title: 'Finanças' }}
+      />
+      <Tab.Screen 
         name="Info" 
         component={InfoScreen} 
         options={{ title: 'Informações' }}
@@ -54,17 +66,15 @@ function TabNavigator() {
 }
 
 function Navigation() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return null;
+  }
 
   return (
     <Stack.Navigator>
-      {user ? (
-        <Stack.Screen 
-          name="MainApp" 
-          component={TabNavigator} 
-          options={{ headerShown: false }}
-        />
-      ) : (
+      {!user ? (
         <>
           <Stack.Screen 
             name="Login" 
@@ -73,14 +83,26 @@ function Navigation() {
           />
           <Stack.Screen 
             name="Register" 
-            component={RegisterScreen}
-            options={{ 
-              headerShown: true,
-              headerTitle: 'Criar Conta',
-              headerStyle: {
-                backgroundColor: '#f5f5f5',
-              },
-            }}
+            component={RegisterScreen} 
+            options={{ title: 'Cadastro' }}
+          />
+        </>
+      ) : (
+        <>
+          <Stack.Screen 
+            name="TabNavigator" 
+            component={TabNavigator} 
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="AddTransaction" 
+            component={AddTransactionScreen} 
+            options={{ title: 'Nova Transação' }}
+          />
+          <Stack.Screen 
+            name="PaymentHistory" 
+            component={PaymentHistoryScreen} 
+            options={{ title: 'Histórico de Pagamentos' }}
           />
         </>
       )}
@@ -92,7 +114,11 @@ export default function App() {
   return (
     <NavigationContainer>
       <AuthProvider>
-        <Navigation />
+        <FinanceProvider>
+          <GamesProvider>
+            <Navigation />
+          </GamesProvider>
+        </FinanceProvider>
       </AuthProvider>
     </NavigationContainer>
   );
