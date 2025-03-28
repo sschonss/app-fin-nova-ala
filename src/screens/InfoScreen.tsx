@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Dimensions, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import MapView, { Marker } from 'react-native-maps';
@@ -26,6 +26,47 @@ export const InfoScreen = () => {
   const handleCopyPix = async () => {
     await Clipboard.setStringAsync('111.339.119-78');
     Alert.alert('Sucesso', 'Chave PIX copiada para a área de transferência!');
+  };
+
+  const openExternalMap = () => {
+    const address = 'R. Gralha Azul, 276, São Cristóvão, Guarapuava - PR';
+    const { latitude, longitude } = location;
+    
+    const scheme = Platform.select({
+      ios: 'maps:',
+      android: 'geo:',
+    });
+
+    const url = Platform.select({
+      ios: `${scheme}${latitude},${longitude}?q=${encodeURIComponent(address)}`,
+      android: `${scheme}${latitude},${longitude}?q=${encodeURIComponent(address)}`,
+    });
+
+    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+    const wazeUrl = `https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`;
+
+    Alert.alert(
+      'Abrir Navegação',
+      'Escolha o aplicativo de navegação',
+      [
+        {
+          text: 'Maps',
+          onPress: () => Linking.openURL(url!),
+        },
+        {
+          text: 'Google Maps',
+          onPress: () => Linking.openURL(googleMapsUrl),
+        },
+        {
+          text: 'Waze',
+          onPress: () => Linking.openURL(wazeUrl),
+        },
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+      ]
+    );
   };
 
   return (
@@ -55,6 +96,13 @@ export const InfoScreen = () => {
                 description="R. Gralha Azul, 276"
               />
             </MapView>
+            <TouchableOpacity
+              style={styles.navigateButton}
+              onPress={openExternalMap}
+            >
+              <Ionicons name="navigate" size={24} color="#fff" />
+              <Text style={styles.navigateButtonText}>Como Chegar</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -135,13 +183,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mapContainer: {
-    marginTop: 10,
-    height: 200,
-    borderRadius: 10,
+    height: 300,
+    borderRadius: 12,
     overflow: 'hidden',
+    marginTop: 10,
+    position: 'relative',
   },
   map: {
-    width: '100%',
-    height: '100%',
+    flex: 1,
+  },
+  navigateButton: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    backgroundColor: '#007AFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  navigateButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
