@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase.config';
 
 interface User {
@@ -8,14 +8,17 @@ interface User {
   email: string;
   fullName: string;
   phone: string;
+  role?: 'admin' | 'user';
 }
 
 interface AuthContextData {
   user: User | null;
   loading: boolean;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string, phone: string) => Promise<void>;
   logOut: () => Promise<void>;
+  setUserAsAdmin: (userId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextData>({} as AuthContextData);
@@ -23,6 +26,7 @@ const AuthContext = createContext<AuthContextData>({} as AuthContextData);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
@@ -31,74 +35,92 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Get additional user data from Firestore
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (userDoc.exists()) {
+            const userData = userDoc.data();
             setUser({
               id: firebaseUser.uid,
               email: firebaseUser.email || '',
-              fullName: userDoc.data().fullName || '',
-              phone: userDoc.data().phone || '',
+              fullName: userData.fullName || '',
+              phone: userData.phone || '',
+              role: userData.role || 'user'
             });
+            setIsAdmin(userData.role === 'admin');
+            
+            // Set initial admin if email matches
+            if (firebaseUser.email === 'schonsluuiz@gmail.com' && userData.role !== 'admin') {
+              await updateDoc(doc(db, 'users', firebaseUser.uid), {
+                role: 'admin'
+              });
+              setIsAdmin(true);
+            }
           } else {
-            // If user exists in Auth but not in Firestore, sign them out
             await signOut(auth);
             setUser(null);
+            setIsAdmin(false);
           }
         } else {
           setUser(null);
+          setIsAdmin(false);
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
-        // Don't sign out on permission errors, just set basic user data
         if (firebaseUser) {
           setUser({
             id: firebaseUser.uid,
             email: firebaseUser.email || '',
             fullName: '',
-            phone: '',
+            phone: ''
           });
-        } else {
-          setUser(null);
         }
-      } finally {
-        setLoading(false);
       }
+      setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string, phone: string) => {
+  const signIn = async (email: string, password: string) => {
     try {
-      // Create auth user
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const { uid } = userCredential.user;
-
-      // Save additional user data to Firestore
-      await setDoc(doc(db, 'users', uid), {
-        fullName,
-        phone,
-        email,
-        createdAt: new Date().toISOString(),
-      });
-
-      // Update local state
-      setUser({
-        id: uid,
-        email,
-        fullName,
-        phone,
-      });
-    } catch (error: any) {
-      console.error('Error in signUp:', error);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+      
+      if (!userDoc.exists()) {
+        throw new Error('User data not found');
+      }
+    } catch (error) {
+      console.error('Error signing in:', error);
       throw error;
     }
   };
 
-  const signIn = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, fullName: string, phone: string) => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // User data will be set by the onAuthStateChanged listener
-    } catch (error: any) {
-      console.error('Error in signIn:', error);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Create user document in Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        email,
+        fullName,
+        phone,
+        role: 'user', // default role
+        createdAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error signing up:', error);
+      throw error;
+    }
+  };
+
+  const setUserAsAdmin = async (userId: string) => {
+    if (!isAdmin) {
+      throw new Error('Only admins can set other users as admin');
+    }
+
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        role: 'admin'
+      });
+    } catch (error) {
+      console.error('Error setting user as admin:', error);
       throw error;
     }
   };
@@ -106,15 +128,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logOut = async () => {
     try {
       await signOut(auth);
-      setUser(null);
-    } catch (error: any) {
-      console.error('Error in logOut:', error);
+    } catch (error) {
+      console.error('Error signing out:', error);
       throw error;
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, logOut }}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      isAdmin,
+      signIn,
+      signUp,
+      logOut,
+      setUserAsAdmin
+    }}>
       {children}
     </AuthContext.Provider>
   );
